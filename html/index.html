@@ -16,14 +16,14 @@
         <v-app data-app>
             <div id="app" class="noselect">
                 <div class="spawn-locations" :class="{'slide-top-fade-leave-active': show == false, 'slide-top-fade-leave-to': show == false}">
-                    <div class="spawn_locations-header"><p><span id="null">Where would you like to start?</span></p></div>
+                    <div class="spawn_locations-header"><p><span id="null">Onde você quer spawnar?</span></p></div>
 
                     <v-btn 
                         elevation="0" color="#00000000" v-if="newChar !== true" class="location" x-large v-ripple 
                         :class="{'selected': 'current' == selectedValue.type && 'current' == selectedValue.name}" 
                         @click="click_location('current', 'current')"
                     >
-                        Last Location
+                        Última localização
                     </v-btn>
 
                     <div v-for="(locations, locationGroupIdx) in positions">
