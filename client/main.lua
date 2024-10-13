@@ -36,6 +36,8 @@ end
 local function createSpawnArea()
     for i = 1, #spawns, 1 do
         local spawn = spawns[i]
+
+        if not spawn.coords then return end
         BeginScaleformMovieMethod(scaleform, 'ADD_AREA')
         ScaleformMovieMethodAddParamInt(i)
         ScaleformMovieMethodAddParamFloat(spawn.coords.x)
@@ -105,8 +107,12 @@ end
 
 local function scaleformDetails(index)
     local spawn = spawns[index]
+    print(json.encode(spawn))
+
+    if not spawn.coords then return end
     BeginScaleformMovieMethod(scaleform, 'ADD_HIGHLIGHT')
     ScaleformMovieMethodAddParamInt(index)
+
     ScaleformMovieMethodAddParamFloat(spawn.coords.x)
     ScaleformMovieMethodAddParamFloat(spawn.coords.y)
     ScaleformMovieMethodAddParamFloat(500.0)
@@ -126,7 +132,7 @@ local function scaleformDetails(index)
 
     BeginScaleformMovieMethod(scaleform, 'ADD_TEXT')
     ScaleformMovieMethodAddParamInt(index)
-    ScaleformMovieMethodAddParamTextureNameString(spawn.label)
+    ScaleformMovieMethodAddParamTextureNameString(locale(spawn.label))
     ScaleformMovieMethodAddParamFloat(spawn.coords.x)
     ScaleformMovieMethodAddParamFloat(spawn.coords.y - 500)
     ScaleformMovieMethodAddParamFloat(25 - math.random(0, 50))
@@ -205,52 +211,91 @@ local function inputHandler()
 
             updateScaleform()
         elseif IsControlJustReleased(0, 191) then
-            DoScreenFadeOut(1000)
+            if not config.clouds then
+                DoScreenFadeOut(1000)
 
-            while not IsScreenFadedOut() do
-                Wait(0)
+                while not IsScreenFadedOut() do
+                    Wait(0)
+                end
+            else
+                SwitchOutPlayer(PlayerPedId(), 0, 1)
+                Citizen.Wait(250)
+                stopCamera()
+            end
+
+            FreezeEntityPosition(cache.ped, false)
+            
+            local coords = spawns[currentButtonID].coords
+
+            SetEntityCoords(cache.ped, coords.x, coords.y, coords.z, false, false, false, false)
+            SetEntityHeading(cache.ped, coords.w or 0.0)
+
+            if spawns[currentButtonID].first_time then
+                TriggerServerEvent("ps-housing:server:createNewApartment", spawns[currentButtonID].key)
+            elseif spawns[currentButtonID].coords == lib.callback.await('qbx_spawn:server:getLastLocation') then -- last location
+                local insideMeta = QBX.PlayerData.metadata["inside"]
+                if insideMeta.property_id ~= nil then
+                    local property_id = insideMeta.property_id
+                    TriggerServerEvent('ps-housing:server:enterProperty', tostring(property_id))
+                end
+            elseif spawns[currentButtonID].id then -- appartment
+                local property_id = spawns[currentButtonID].id
+                TriggerServerEvent('ps-housing:server:enterProperty', tostring(property_id))
+            else -- Not an appartment
+                TriggerServerEvent('ps-housing:server:resetMetaData')
             end
 
             TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
             TriggerEvent('QBCore:Client:OnPlayerLoaded')
-            FreezeEntityPosition(cache.ped, false)
-
-            local spawnData = spawns[currentButtonID]
-            if spawnData.propertyId then
-                TriggerServerEvent('qbx_properties:server:enterProperty', { id = spawnData.propertyId, isSpawn = true })
+        
+            if config.clouds then 
+                Citizen.Wait(5000)
+                SwitchInPlayer(PlayerPedId())
+                if not spawns[currentButtonID].first_time then
+                    lib.requestAnimDict("random@peyote@generic", 15000)
+                    Citizen.Wait(1500)
+                    TaskPlayAnim(cache.ped, "random@peyote@generic", "wakeup", 8.0, 8.0, -1, 0, 0, false, false, false)
+                end
             else
-                SetEntityCoords(cache.ped, spawnData.coords.x, spawnData.coords.y, spawnData.coords.z, false, false, false, false)
-                SetEntityHeading(cache.ped, spawnData.coords.w or 0.0)
+                DoScreenFadeIn(1000)
             end
-
-            DoScreenFadeIn(1000)
-
             break
         end
 
         Wait(0)
     end
-
-    stopCamera()
+    if not config.clouds then
+        stopCamera()
+    end
 end
 
-AddEventHandler('qb-spawn:client:setupSpawns', function()
+AddEventHandler('qb-spawn:client:setupSpawns', function(cData, new, apps)
     spawns = {}
+    if new then
+        for k, v in pairs(apps) do 
+            spawns[#spawns+1] = {
+                first_time = true,
+                key = k,
+                label = v.label,
+                coords = vector3(v.door.x, v.door.y, v.door.z)
+            }
+        end
+    else
+        spawns[#spawns+1] = {
+            label = 'last_location',
+            coords = lib.callback.await('qbx_spawn:server:getLastLocation')
+        }
 
-    local lastCoords, lastPropertyId = lib.callback.await('qbx_spawn:server:getLastLocation')
-    spawns[#spawns + 1] = {
-        label = locale('last_location'),
-        coords = lastCoords,
-        propertyId = lastPropertyId
-    }
+        for i = 1, #config.spawns do
+            spawns[#spawns+1] = config.spawns[i]
+        end
 
-    for i = 1, #config.spawns do
-        spawns[#spawns + 1] = config.spawns[i]
-    end
+        local houses = lib.callback.await('qbx_spawn:server:getHouses')
 
-    local properties = lib.callback.await('qbx_spawn:server:getProperties')
-    for i = 1, #properties do
-        spawns[#spawns + 1] = properties[i]
+        for i = 1, #houses do
+            spawns[#spawns+1] = houses[i]
+            --print(houses[i].label)
+        end
     end
 
     Wait(400)
