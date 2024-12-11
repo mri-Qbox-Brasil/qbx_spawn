@@ -230,19 +230,19 @@ local function inputHandler()
             SetEntityCoords(cache.ped, coords.x, coords.y, coords.z, false, false, false, false)
             SetEntityHeading(cache.ped, coords.w or 0.0)
 
-            if spawns[currentButtonID].first_time then
-                TriggerServerEvent("ps-housing:server:createNewApartment", spawns[currentButtonID].key)
+
+            local spawnData = spawns[currentButtonID]
+            if spawnData.propertyId then
+                TriggerServerEvent('ps-housing:server:enterProperty', tostring(spawnData.propertyId), 'spawn')
             elseif spawns[currentButtonID].coords == lib.callback.await('qbx_spawn:server:getLastLocation') then -- last location
                 local insideMeta = QBX.PlayerData.metadata["inside"]
                 if insideMeta.property_id ~= nil then
                     local property_id = insideMeta.property_id
                     TriggerServerEvent('ps-housing:server:enterProperty', tostring(property_id))
                 end
-            elseif spawns[currentButtonID].id then -- appartment
-                local property_id = spawns[currentButtonID].id
-                TriggerServerEvent('ps-housing:server:enterProperty', tostring(property_id))
-            else -- Not an appartment
-                TriggerServerEvent('ps-housing:server:resetMetaData')
+            else
+                SetEntityCoords(cache.ped, spawnData.coords.x, spawnData.coords.y, spawnData.coords.z, false, false, false, false)
+                SetEntityHeading(cache.ped, spawnData.coords.w or 0.0)
             end
 
             TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
