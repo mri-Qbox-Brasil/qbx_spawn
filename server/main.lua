@@ -25,9 +25,8 @@ lib.callback.register('qbx_spawn:server:getHouses', function(source)
     for i = 1, #houses do
         local house = houses[i]
         if not house.apartment then
-            local door = exports['ps-housing']:getMainDoor(house.property_id, 1)
-            local coords = door.objCoords or door.coords or door.doors[1] and
-                               door.doors[1].coords or door.doors[1].objCoords
+            local door = exports['ps-housing']:getMainDoor(house.property_id, 1, true)
+            local coords = door.objCoords or door.coords or door.doors[1] and door.doors[1].coords or door.doors[1].objCoords
             houseData[#houseData + 1] = {label = house.street, coords = coords}
         end
     end
