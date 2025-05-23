@@ -1,3 +1,4 @@
+local config = require 'config.server'
 local ps_starters = {
     -- ["Name of Starting appartment"] = vector3()
     ["Motel"] = vector3(325.14, -229.54, 54.21)
@@ -32,4 +33,27 @@ lib.callback.register('qbx_spawn:server:getHouses', function(source)
     end
 
     return houseData
+end)
+
+lib.callback.register('qbx_spawn:server:alreadySpawned', function(source)
+    if not config.selectOnFirstSpawn then return false end
+    local player = exports.qbx_core:GetPlayer(source)
+    while not player do
+        Wait(100)
+        player = exports.qbx_core:GetPlayer(source)
+    end
+    local spawnedPlayers = GlobalState.SpawnedPlayers or {}
+    return spawnedPlayers[player.PlayerData.citizenid]
+end)
+
+RegisterNetEvent('qbx_spawn:server:spawn', function()
+    if not config.selectOnFirstSpawn then return false end
+    local player = exports.qbx_core:GetPlayer(source)
+    while not player do
+        Wait(100)
+        player = exports.qbx_core:GetPlayer(source)
+    end
+    local spawnedPlayers = GlobalState.SpawnedPlayers or {}
+    spawnedPlayers[player.PlayerData.citizenid] = true
+    GlobalState:set('SpawnedPlayers', spawnedPlayers, true)
 end)
