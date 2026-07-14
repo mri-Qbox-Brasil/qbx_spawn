@@ -1,159 +1,188 @@
-# Manual do qbx_spawn
+# qbx_spawn — Manual
 
-Sistema de seleção de spawn para Qbox — interface moderna com mapa interativo, suporte ao último local, propriedades e casas.
+Tela de seleção de spawn para Qbox, com mapa scaleform em 3D (`HEISTMAP_MP`), suporte a último local salvo, apartamentos iniciais e casas do `ps-housing`.
 
-## Funcionalidades Principais
+---
 
-### Mapa Interativo
-- Mapa scaleform em tela cheia com áreas de spawn clicáveis
-- Visualização clara de todos os pontos de spawn disponíveis
-- Interface intuitiva para seleção de local de spawn
+## Sumário
 
-### Sistema de Spawn
-- **Último Local**: Spawna o jogador na última posição salva automaticamente
-- **Propriedades**: Spawn em propriedades possuídas via integração ps-housing
-- **Casas**: Spawn em casas possuídas pelos jogadores
-- **Primeira Vez**: Tratamento especial para novos personagens com pontos de spawn específicos
+1. [Dependências](#dependências)
+2. [Instalação](#instalação)
+3. [Configuração](#configuração)
+4. [Fluxo de spawn](#fluxo-de-spawn)
+5. [Controles](#controles)
+6. [Integrações](#integrações)
+7. [Entrypoints para outros recursos](#entrypoints-para-outros-recursos)
+8. [Localização](#localização)
+9. [Estrutura de arquivos](#estrutura-de-arquivos)
 
-### Navegação
-- **Teclado**: Use as setas direcionais para navegar pelos pontos de spawn
-- **Confirmação**: Pressione ENTER para confirmar a seleção
-- **Mouse**: Clique diretamente nas áreas do mapa
-
-### Transições
-- **Nuvens**: Efeito de transição de nuvens opcional ao spawnar
-- Animações suaves entre a seleção e o spawn
-
-## Configuração
-
-### config/server.lua
-```lua
-config = {
-    selectOnFirstSpawn = true, -- Mostrar seleção no primeiro spawn
-    spawns = {
-        {
-            label = 'Aeroporto',
-            coords = vector4(-1037.37, -2737.66, 13.76, 206.12)
-        },
-        {
-            label = 'Prefeitura',
-            coords = vector4(-269.13, -955.28, 31.22, 205.0)
-        },
-        {
-            label = 'Hospital',
-            coords = vector4(306.96, -601.33, 43.28, 270.0)
-        },
-        -- Adicione mais pontos de spawn conforme necessário
-    }
-}
-```
-
-### config/client.lua
-```lua
-config = {
-    clouds = false,      -- Ativar efeito de transição de nuvens
-    debugPoly = false,   -- Mostrar polígonos de debug
-}
-```
-
-## Uso
-
-### Evento de Spawn
-
-O sistema usa o evento padrão do QBCore para configurar spawns:
-
-```lua
--- Disparado automaticamente pelo qbx_core
-TriggerEvent('qb-spawn:client:setupSpawns', cData, new, apps)
-```
-
-**Parâmetros:**
-- `cData`: Dados do personagem
-- `new`: Boolean indicando se é primeiro spawn
-- `apps`: Tabela de pontos de spawn de apartamentos (para novos personagens)
-
-### Callbacks do Servidor
-
-| Callback | Parâmetros | Retorno | Descrição |
-|----------|------------|--------|-------------|
-| `qbx_spawn:server:getLastLocation` | `source` | `vector4, propertyId?` | Obter último local salvo |
-| `qbx_spawn:server:getHouses` | `source` | `table[]` | Obter casas possuídas |
-| `qbx_spawn:server:alreadySpawned` | `source` | `boolean` | Verificar se já spawnou |
-
-## Eventos
-
-### Client Events
-
-| Evento | Payload | Descrição |
-|-------|----------|-------------|
-| `qb-spawn:client:setupSpawns` | `cData, new, apps` | Configurar pontos de spawn |
-
-## Fluxo de Spawn
-
-1. **Jogador faz login** → qbx_core carrega personagem
-2. **Verifica se já spawnou** → `alreadySpawned` callback
-3. **Se primeiro spawn**:
-   - Mostra seleção se `selectOnFirstSpawn = true`
-   - Inclui pontos de apartamentos se disponíveis
-4. **Se já spawnou antes**:
-   - Oferece opção de "Último Local"
-   - Carrega pontos de spawn configurados
-5. **Jogador seleciona spawn** → Confirma com ENTER
-6. **Teleporta jogador** → Aplica coordenadas e efeito de nuvens
-
-## Estrutura de Arquivos
-
-```
-qbx_spawn/
-├── client/
-│   └── main.lua           # UI de spawn, renderização do mapa, entrada
-├── server/
-│   └── main.lua           # Dados de spawn, último local, casas
-├── config/
-│   ├── client.lua         # Config do client (nuvens, debug)
-│   └── server.lua         # Config do servidor (spawns, selectOnFirstSpawn)
-└── locales/               # Traduções
-```
+---
 
 ## Dependências
 
-| Dependência | Versão Mínima | Obrigatória |
-|------------|-------------------|----------|
-| ox_lib | - | ✅ |
-| oxmysql | - | ✅ |
-| qbx_core | - | ✅ |
-| ps-housing | - | ❌ (opcional) |
+| Recurso | Obrigatório | Observação |
+|---|---|---|
+| `qbx_core` | Sim | Framework base. Dispara o evento `qb-spawn:client:setupSpawns` e fornece `exports.qbx_core:GetPlayer` |
+| `ox_lib` | Sim | Callbacks, locale, `lib.requestScaleformMovie` |
+| `oxmysql` | Sim | Leitura da coluna `position` da tabela `players` e da tabela `properties` |
+| `ps-housing` | Não | Necessário para o callback `qbx_spawn:server:getHouses` retornar casas. Sem ele, jogadores sem propriedades funcionam normalmente |
+
+---
+
+## Instalação
+
+1. Copie a pasta `qbx_spawn` para `resources/`.
+2. Adicione ao `server.cfg`:
+   ```
+   ensure qbx_spawn
+   ```
+3. Não há SQL próprio. O recurso lê tabelas já criadas pelo `qbx_core` (`players`) e pelo `ps-housing` (`properties`).
+4. **Conflitos** — não rode junto com o `mri_Qspawn`. Os dois registram os mesmos callbacks (`qbx_spawn:server:getLastLocation`, `qbx_spawn:server:getHouses`, `qbx_spawn:server:alreadySpawned`) e o mesmo handler de `qb-spawn:client:setupSpawns`. Escolha um.
+
+---
+
+## Configuração
+
+### `config/client.lua`
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `spawns` | array | Sim | Lista de pontos de spawn fixos exibidos no mapa |
+| `spawns[].label` | string | Sim | Chave de tradução ou texto exibido no mapa. Passa por `locale()`, então uma chave definida em `locales/*.json` é traduzida |
+| `spawns[].coords` | `vec4(x, y, z, w)` | Sim | Coordenadas do spawn. `w` é o heading aplicado ao ped |
+| `clouds` | bool | Não | Quando `true`, usa a transição de nuvens (`SwitchOutPlayer`/`SwitchInPlayer`) e toca a animação de acordar (`random@peyote@generic` / `wakeup`). Quando `false` (padrão), usa fade de tela simples |
+
+Os spawns padrão do recurso são Legion Square, Paleto Bay e Motels.
+
+### `config/server.lua`
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `selectOnFirstSpawn` | bool | Não | Quando `true` (padrão), a tela de seleção só aparece no primeiro spawn do personagem na sessão do servidor; nos spawns seguintes o jogador vai direto para o último local salvo. Quando `false`, a tela aparece sempre |
+
+O controle de "já spawnou" é feito pelo GlobalState `SpawnedPlayers`, indexado por `citizenid`. Ele é resetado quando o servidor reinicia.
+
+---
+
+## Fluxo de spawn
+
+1. O `qbx_core` termina de carregar o personagem e dispara `qb-spawn:client:setupSpawns` com `cData`, `new` e `apps`.
+2. **Personagem novo (`new = true`)** — a lista de spawns é montada apenas com os apartamentos recebidos em `apps`. Cada entrada é marcada com `first_time = true`, o que suprime a animação de acordar.
+3. **Personagem existente (`new = false`)** — a lista é montada nesta ordem:
+   - `last_location` (retorno de `qbx_spawn:server:getLastLocation`);
+   - os spawns fixos de `config/client.lua`;
+   - as casas retornadas por `qbx_spawn:server:getHouses`.
+4. O client verifica `qbx_spawn:server:alreadySpawned`. Se retornar `true`, pula a seleção e teleporta direto para o último local.
+5. Caso contrário, monta a câmera, o mapa scaleform e espera a escolha do jogador.
+6. Após a confirmação, o ped é teleportado, os eventos `QBCore:Server:OnPlayerLoaded` e `QBCore:Client:OnPlayerLoaded` são disparados, e o client emite `qbx_spawn:server:spawn` para marcar o personagem como já spawnado.
+
+---
+
+## Controles
+
+| Tecla | Controle | Ação |
+|---|---|---|
+| Seta para cima | `188` | Spawn anterior |
+| Seta para baixo | `187` | Próximo spawn |
+| Enter | `191` | Confirmar spawn selecionado |
+
+Os três aparecem na barra de botões instrucionais (`INSTRUCTIONAL_BUTTONS`) no rodapé da tela.
+
+---
 
 ## Integrações
 
 ### ps-housing
-- Detecta automaticamente propriedades possuídas
-- Adiciona pontos de spawn de propriedades à lista
-- Permite spawn direto na propriedade do jogador
+
+Se o jogador tiver linhas na tabela `properties` com `owner_citizenid` igual ao seu e `apartment` falso, cada propriedade vira uma opção de spawn. As coordenadas da porta principal são obtidas via `exports['ps-housing']:getMainDoor(property_id, 1, true)`.
+
+Ao confirmar o spawn em uma propriedade, o client dispara `ps-housing:server:enterProperty`:
+
+- se o spawn escolhido tem `propertyId`, o evento é disparado com o modo `'spawn'`;
+- se o jogador escolheu `last_location` e o metadata `inside.property_id` existe, o evento é disparado com esse `property_id`, colocando o jogador de volta dentro do imóvel onde deslogou.
 
 ### qbx_core
-- Recebe dados do personagem via eventos
-- Salva última posição no logout
-- Integra com sistema multicharacter
 
-## Solução de Problemas
+O recurso não registra nenhum export próprio de spawn. Ele reage ao evento `qb-spawn:client:setupSpawns` disparado pelo fluxo de multichar do `qbx_core` e devolve o controle disparando `QBCore:Server:OnPlayerLoaded` / `QBCore:Client:OnPlayerLoaded` ao final.
 
-### Mapa não aparece
-- Verifique se o qbx_core inicializou corretamente
-- Confirme que o personagem foi carregado
-- Verifique se há erros no console do client
+---
 
-### Spawn no último local não funciona
-- Verifique se o jogador já fez spawn anteriormente
-- Confirme que a posição foi salva no logout
-- Verifique o callback `getLastLocation`
+## Entrypoints para outros recursos
 
-### Pontos de spawn não aparecem
-- Verifique a configuração em `config/server.lua`
-- Confirme que `spawns` é uma tabela válida
-- Verifique se as coordenadas estão corretas (vector4)
+### Evento `qb-spawn:client:setupSpawns` (client)
 
-### Teclado não navega
-- Certifique-se de que o mapa está ativo
-- Use as setas direcionais (não WASD)
-- Pressione ENTER para confirmar seleção
+Ponto de entrada do recurso. Abre a tela de seleção de spawn.
+
+```lua
+TriggerEvent('qb-spawn:client:setupSpawns', cData, new, apps)
+```
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `cData` | table | Dados do personagem carregado |
+| `new` | bool | `true` para personagem recém-criado |
+| `apps` | table | Apartamentos iniciais disponíveis. Cada entrada precisa de `label` e `door` com `x`, `y`, `z`. Usado apenas quando `new = true` |
+
+### Callbacks de servidor
+
+```lua
+-- Retorna a posição salva (vec4) e o propertyId do metadata `inside`, se houver.
+local coords, propertyId = lib.callback.await('qbx_spawn:server:getLastLocation')
+
+-- Retorna a lista de casas do jogador: { { label = street, coords = vec3 }, ... }
+local houses = lib.callback.await('qbx_spawn:server:getHouses')
+
+-- Retorna true se o personagem já spawnou nesta sessão do servidor.
+-- Sempre false quando `selectOnFirstSpawn` está desativado.
+local spawned = lib.callback.await('qbx_spawn:server:alreadySpawned')
+```
+
+### Evento de servidor `qbx_spawn:server:spawn`
+
+Marca o `citizenid` do jogador como já spawnado no GlobalState `SpawnedPlayers`.
+
+```lua
+TriggerServerEvent('qbx_spawn:server:spawn')
+```
+
+---
+
+## Localização
+
+As strings do mapa (labels de spawn passados por `locale()`) são traduzidas via `ox_lib` locale. Os arquivos ficam em `locales/`:
+
+- `de.json` — alemão
+- `en.json` — inglês
+- `pl.json` — polonês
+- `pt-br.json` — português do Brasil
+- `pt.json` — português (Portugal)
+
+O locale ativo é definido pela convar `ox:locale` no `server.cfg`:
+
+```
+setr ox:locale "pt-br"
+```
+
+Para adicionar um idioma, crie `locales/<codigo>.json` seguindo a estrutura dos existentes e reinicie o recurso.
+
+---
+
+## Estrutura de arquivos
+
+```
+qbx_spawn/
+├── client/
+│   └── main.lua          — câmera, mapa scaleform, botões instrucionais, teleporte e transições
+├── server/
+│   └── main.lua          — callbacks de último local, casas e controle de primeiro spawn
+├── config/
+│   ├── client.lua        — lista de spawns fixos e flag `clouds`
+│   └── server.lua        — flag `selectOnFirstSpawn`
+├── locales/
+│   ├── de.json
+│   ├── en.json
+│   ├── pl.json
+│   ├── pt-br.json
+│   └── pt.json
+└── fxmanifest.lua
+```
