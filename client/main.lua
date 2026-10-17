@@ -1,13 +1,10 @@
 local config = require 'config.client'
-local previewCam, scaleform, buttonsScaleform
-local currentButtonID, previousButtonID = 1, 1
-local arrowStart = {
-    vec2(-3150.25, -1427.83),
-    vec2(4173.08, 1338.72),
-    vec2(-2390.23, 6262.24)
-}
-
 local spawns
+local previewCam
+local scaleform
+local buttonsScaleform
+local currentButtonId = 1
+local previousButtonId = 1
 
 local function setupCamera()
     previewCam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', -24.77, -590.35, 90.8, -2.0, 0.0, 160.0, 45.0, false, 2)
@@ -27,6 +24,7 @@ end
 local function managePlayer()
     SetEntityCoords(cache.ped, -21.58, -583.76, 86.31, false, false, false, false)
     FreezeEntityPosition(cache.ped, true)
+    DisplayRadar(false)
 
     SetTimeout(500, function()
         DoScreenFadeIn(5000)
@@ -75,9 +73,9 @@ local function setupInstructionalScaleform()
     ScaleformMovieMethodAddParamInt(200)
     EndScaleformMovieMethod()
 
-    setupInstructionalButton(0, 191, 'Submit')
-    setupInstructionalButton(1, 187, 'Down')
-    setupInstructionalButton(2, 188, 'Up')
+    setupInstructionalButton(0, 191, locale('submit') or 'Submit')
+    setupInstructionalButton(1, 187, locale('down') or 'Down')
+    setupInstructionalButton(2, 188, locale('up') or 'Up')
 
     BeginScaleformMovieMethod(buttonsScaleform, 'DRAW_INSTRUCTIONAL_BUTTONS')
     EndScaleformMovieMethod()
@@ -90,7 +88,8 @@ local function setupMap()
         setupInstructionalScaleform()
         createSpawnArea()
         while DoesCamExist(previewCam) do
-            DrawScaleformMovie_3d(scaleform, -24.86, -593.38, 91.8, -180.0, -180.0, -20.0, 0.0, 2.0, 0.0, 3.815, 2.27, 1.0, 2)
+            DrawScaleformMovie_3d(scaleform, -24.86, -593.38, 91.8, -180.0, -180.0, -20.0, 0.0, 2.0, 0.0, 3.815, 2.27,
+                1.0, 2)
 
             HideHudComponentThisFrame(6)
             HideHudComponentThisFrame(7)
@@ -109,6 +108,13 @@ local function scaleformDetails(index)
     local spawn = spawns[index]
 
     if not spawn.coords then return end
+
+    local arrowStart = {
+        vec2(-3150.25, -1427.83),
+        vec2(4173.08, 1338.72),
+        vec2(-2390.23, 6262.24)
+    }
+
     BeginScaleformMovieMethod(scaleform, 'ADD_HIGHLIGHT')
     ScaleformMovieMethodAddParamInt(index)
 
@@ -162,7 +168,7 @@ local function scaleformDetails(index)
 end
 
 local function updateScaleform()
-    if previousButtonID == currentButtonID then return end
+    if previousButtonId == currentButtonId then return end
 
     for i = 1, #spawns, 1 do
         BeginScaleformMovieMethod(scaleform, 'REMOVE_HIGHLIGHT')
@@ -186,10 +192,11 @@ local function updateScaleform()
         EndScaleformMovieMethod()
     end
 
-    scaleformDetails(currentButtonID)
+    scaleformDetails(currentButtonId)
 end
 
 local function inputHandler()
+<<<<<<< fork
     if lib.callback.await('qbx_spawn:server:alreadySpawned') then
         local spawnData = {
             coords = lib.callback.await('qbx_spawn:server:getLastLocation')
@@ -197,7 +204,19 @@ local function inputHandler()
         FreezeEntityPosition(cache.ped, false)
         SetEntityCoords(cache.ped, spawnData.coords.x, spawnData.coords.y, spawnData.coords.z, false, false, false, false)
         SetEntityHeading(cache.ped, spawnData.coords.w or 0.0)
+||||||| base
+    while DoesCamExist(previewCam) do
+        if IsControlJustReleased(0, 188) then
+            previousButtonID = currentButtonID
+            currentButtonID -= 1
+=======
+    while DoesCamExist(previewCam) do
+        if IsControlJustReleased(0, 188) then
+            previousButtonId = currentButtonId
+            currentButtonId -= 1
+>>>>>>> upstream
 
+<<<<<<< fork
         TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
         TriggerEvent('QBCore:Client:OnPlayerLoaded')
 
@@ -208,8 +227,82 @@ local function inputHandler()
                 lib.requestAnimDict("random@peyote@generic", 15000)
                 Citizen.Wait(1500)
                 TaskPlayAnim(cache.ped, "random@peyote@generic", "wakeup", 8.0, 8.0, -1, 0, 0, false, false, false)
+||||||| base
+            if currentButtonID < 1 then
+                currentButtonID = #spawns
+=======
+            if currentButtonId < 1 then
+                currentButtonId = #spawns
+>>>>>>> upstream
             end
+<<<<<<< fork
         else
+||||||| base
+
+            updateScaleform()
+        elseif IsControlJustReleased(0, 187) then
+            previousButtonID = currentButtonID
+            currentButtonID += 1
+
+            if currentButtonID > #spawns then
+                currentButtonID = 1
+            end
+
+            updateScaleform()
+        elseif IsControlJustReleased(0, 191) then
+            DoScreenFadeOut(1000)
+
+            while not IsScreenFadedOut() do
+                Wait(0)
+            end
+
+            TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
+            TriggerEvent('QBCore:Client:OnPlayerLoaded')
+            FreezeEntityPosition(cache.ped, false)
+
+            local spawnData = spawns[currentButtonID]
+            if spawnData.propertyId then
+                TriggerServerEvent('qbx_properties:server:enterProperty', { id = spawnData.propertyId, isSpawn = true })
+            else
+                SetEntityCoords(cache.ped, spawnData.coords.x, spawnData.coords.y, spawnData.coords.z, false, false, false, false)
+                SetEntityHeading(cache.ped, spawnData.coords.w or 0.0)
+            end
+
+=======
+
+            updateScaleform()
+        elseif IsControlJustReleased(0, 187) then
+            previousButtonId = currentButtonId
+            currentButtonId += 1
+
+            if currentButtonId > #spawns then
+                currentButtonId = 1
+            end
+
+            updateScaleform()
+        elseif IsControlJustReleased(0, 191) then
+            DoScreenFadeOut(1000)
+
+            while not IsScreenFadedOut() do
+                Wait(0)
+            end
+
+            TriggerServerEvent('QBCore:Server:OnPlayerLoaded')
+            TriggerEvent('QBCore:Client:OnPlayerLoaded')
+            FreezeEntityPosition(cache.ped, false)
+            DisplayRadar(true)
+
+            local spawnData = spawns[currentButtonId]
+
+            if spawnData.propertyId then
+                TriggerServerEvent('qbx_properties:server:enterProperty', { id = spawnData.propertyId, isSpawn = true })
+            else
+                SetEntityCoords(cache.ped, spawnData.coords.x, spawnData.coords.y, spawnData.coords.z, false, false,
+                    false, false)
+                SetEntityHeading(cache.ped, spawnData.coords.w or 0.0)
+            end
+
+>>>>>>> upstream
             DoScreenFadeIn(1000)
         end
     else
@@ -293,7 +386,7 @@ local function inputHandler()
     TriggerServerEvent('qbx_spawn:server:spawn')
 end
 
-AddEventHandler('qb-spawn:client:setupSpawns', function(cData, new, apps)
+RegisterNetEvent('qb-spawn:client:setupSpawns', function(cData, new, apps)
     spawns = {}
     if new then
         for k, v in pairs(apps) do
@@ -310,9 +403,27 @@ AddEventHandler('qb-spawn:client:setupSpawns', function(cData, new, apps)
             coords = lib.callback.await('qbx_spawn:server:getLastLocation')
         }
 
+<<<<<<< fork
         for i = 1, #config.spawns do
             spawns[#spawns+1] = config.spawns[i]
         end
+||||||| base
+    local lastCoords, lastPropertyId = lib.callback.await('qbx_spawn:server:getLastLocation')
+    spawns[#spawns + 1] = {
+        label = locale('last_location'),
+        coords = lastCoords,
+        propertyId = lastPropertyId
+    }
+=======
+    local lastCoords, lastPropertyId = lib.callback.await('qbx_spawn:server:getLastLocation')
+    if lastCoords then
+        spawns[#spawns + 1] = {
+            label = locale('last_location'),
+            coords = lastCoords,
+            propertyId = lastPropertyId
+        }
+    end
+>>>>>>> upstream
 
         local houses = lib.callback.await('qbx_spawn:server:getHouses')
 
@@ -329,6 +440,6 @@ AddEventHandler('qb-spawn:client:setupSpawns', function(cData, new, apps)
 
     Wait(400)
 
-    scaleformDetails(currentButtonID)
+    scaleformDetails(currentButtonId)
     inputHandler()
 end)

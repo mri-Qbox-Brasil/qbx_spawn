@@ -1,5 +1,6 @@
 {
-    "last_location": "Ostatnia pozycja",
-    "Legion Square": "Kwadraciak",
-    "Motels": "Motele"
+    "up": "Góra",
+    "down": "Dół",
+    "submit": "Zatwierdź",
+    "last_location": "Ostatnia lokalizacja"
 }
